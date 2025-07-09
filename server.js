@@ -1,0 +1,79 @@
+const express = require('express');
+const cors = require('cors');
+const sqlite3 = require('sqlite3').verbose();
+const app = express();
+require('dotenv').config();
+
+const PORT = process.env.PORT || 3000;
+
+app.use(cors({ origin: '*' })); // Разрешает запросы с любого источника (для тестирования)
+app.use(express.json({ strict: true })); // Ограничивает разбор только валидного JSON
+
+const db = new sqlite3.Database('./keys.db', (err) => {
+  if (err) console.error('DB error:', err.message);
+  db.run(`CREATE TABLE IF NOT EXISTS keys (
+    key TEXT PRIMARY KEY,
+    userId TEXT,
+    createdAt TEXT
+  )`);
+});
+
+app.post('/verify', (req, res) => {
+  const { key } = req.body || {};
+  if (!key || typeof key !== 'string') {
+    return res.status(400).json({ isValid: false, message: 'Неверный формат ключа' });
+  }
+  db.get(`SELECT * FROM keys WHERE key = ?`, [key], (err, row) => {
+    if (err) return res.status(500).json({ isValid: false, message: 'Ошибка сервера' });
+    res.json({ isValid: !!row, message: row ? 'Доступ разрешен' : 'Неверный ключ' });
+  });
+});
+
+app.post('/add-key', (req, res) => {
+  const { key, userId } = req.body || {};
+  const apiKey = req.headers['x-api-key'];
+  if (!key || !userId || typeof key !== 'string' || typeof userId !== 'string') {
+    return res.status(400).json({ message: 'Неверный формат данных' });
+  }
+  if (apiKey !== 'NeverLoseClientTheBest') {
+    return res.status(401).json({ message: 'Недостаточно прав' });
+  }
+  db.run(
+    `INSERT INTO keys (key, userId, createdAt) VALUES (?, ?, ?)`,
+    [key, userId, new Date().toISOString()],
+    (err) => {
+      if (err) return res.status(500).json({ message: 'Ошибка добавления ключа' });
+      res.json({ message: 'Ключ добавлен' });
+    }
+  );
+});
+
+app.post('/delete-key', (req, res) => {
+  const { key } = req.body || {};
+  const apiKey = req.headers['x-api-key'];
+  if (!key || typeof key !== 'string') {
+    return res.status(400).json({ message: 'Неверный формат ключа' });
+  }
+  if (apiKey !== 'NeverLoseClientTheBest') {
+    return res.status(401).json({ message: 'Недостаточно прав' });
+  }
+  db.run(`DELETE FROM keys WHERE key = ?`, [key], (err) => {
+    if (err) return res.status(500).json({ message: 'Ошибка удаления ключа' });
+    db.get(`SELECT * FROM keys WHERE key = ?`, [key], (err, row) => {
+      res.json({ message: row ? 'Ключ не удален' : 'Ключ удален', success: !row });
+    });
+  });
+});
+
+app.get('/get-keys', (req, res) => {
+  const apiKey = req.headers['x-api-key'];
+  if (apiKey !== 'NeverLoseClientTheBest') {
+    return res.status(401).json({ message: 'Недостаточно прав' });
+  }
+  db.all(`SELECT * FROM keys`, [], (err, rows) => {
+    if (err) return res.status(500).json({ message: 'Ошибка сервера' });
+    res.json({ keys: rows });
+  });
+});
+
+app.listen(PORT, () => console.log(`Сервер на ${PORT}`));
