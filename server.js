@@ -6,8 +6,8 @@ require('dotenv').config();
 
 const PORT = process.env.PORT || 3000;
 
-app.use(cors({ origin: '*' })); // Разрешает запросы с любого источника (для тестирования)
-app.use(express.json({ strict: true })); // Ограничивает разбор только валидного JSON
+app.use(cors({ origin: '*' }));
+app.use(express.json({ strict: true }));
 
 const db = new sqlite3.Database('./keys.db', (err) => {
   if (err) console.error('DB error:', err.message);
@@ -31,11 +31,11 @@ app.post('/verify', (req, res) => {
 
 app.post('/add-key', (req, res) => {
   const { key, userId } = req.body || {};
-  const apiKey = req.headers['x-api-key'];
+  const apiKey = req.headers['x-api-key'] || process.env.API_KEY;
   if (!key || !userId || typeof key !== 'string' || typeof userId !== 'string') {
     return res.status(400).json({ message: 'Неверный формат данных' });
   }
-  if (apiKey !== 'NeverLoseClientTheBest') {
+  if (!apiKey || apiKey !== process.env.API_KEY) {
     return res.status(401).json({ message: 'Недостаточно прав' });
   }
   db.run(
@@ -50,11 +50,11 @@ app.post('/add-key', (req, res) => {
 
 app.post('/delete-key', (req, res) => {
   const { key } = req.body || {};
-  const apiKey = req.headers['x-api-key'];
+  const apiKey = req.headers['x-api-key'] || process.env.API_KEY;
   if (!key || typeof key !== 'string') {
     return res.status(400).json({ message: 'Неверный формат ключа' });
   }
-  if (apiKey !== 'NeverLoseClientTheBest') {
+  if (!apiKey || apiKey !== process.env.API_KEY) {
     return res.status(401).json({ message: 'Недостаточно прав' });
   }
   db.run(`DELETE FROM keys WHERE key = ?`, [key], (err) => {
@@ -66,8 +66,8 @@ app.post('/delete-key', (req, res) => {
 });
 
 app.get('/get-keys', (req, res) => {
-  const apiKey = req.headers['x-api-key'];
-  if (apiKey !== 'NeverLoseClientTheBest') {
+  const apiKey = req.headers['x-api-key'] || process.env.API_KEY;
+  if (!apiKey || apiKey !== process.env.API_KEY) {
     return res.status(401).json({ message: 'Недостаточно прав' });
   }
   db.all(`SELECT * FROM keys`, [], (err, rows) => {
