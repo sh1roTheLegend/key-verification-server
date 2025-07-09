@@ -70,9 +70,31 @@ app.get('/get-keys', (req, res) => {
   if (!apiKey || apiKey !== process.env.API_KEY) {
     return res.status(401).json({ message: 'Недостаточно прав' });
   }
-  db.all(`SELECT * FROM keys`, [], (err, rows) => {
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 10;
+  const offset = (page - 1) * limit;
+
+  db.all(`SELECT * FROM keys LIMIT ? OFFSET ?`, [limit, offset], (err, rows) => {
     if (err) return res.status(500).json({ message: 'Ошибка сервера' });
-    res.json({ keys: rows });
+
+    db.get(`SELECT COUNT(*) as total FROM keys`, (err, countRow) => {
+      if (err) return res.status(500).json({ message: 'Ошибка сервера' });
+      const total = countRow.total;
+      const totalPages = Math.ceil(total / limit);
+
+      res.set('Content-Type', 'application/json');
+      res.send(JSON.stringify({
+        keys: rows,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages,
+          hasNext: page < totalPages,
+          hasPrev: page > 1
+        }
+      }, null, 2));
+    });
   });
 });
 
