@@ -13,10 +13,17 @@ const redisClient = redis.createClient({
   url: process.env.REDIS_URL
 });
 
-redisClient.on('error', (err) => console.log('Redis Client Error', err));
+redisClient.on('error', (err) => {
+  console.log('Redis Client Error', err);
+});
 
 (async () => {
-  await redisClient.connect();
+  try {
+    await redisClient.connect();
+    console.log('Connected to Redis successfully');
+  } catch (err) {
+    console.error('Failed to connect to Redis:', err);
+  }
 })();
 
 function generateUniqueKey(length = 16) {
