@@ -50,6 +50,10 @@ function generateUniqueKey(length = 16) {
   });
 }
 
+app.get('/ping', (req, res) => {
+  res.send('pong');
+});
+
 app.post('/verify', async (req, res) => {
   const { key } = req.body || {};
   if (!key || typeof key !== 'string') {
@@ -197,5 +201,10 @@ app.post('/generate-key', async (req, res) => {
 setInterval(() => {
   console.log('Keep-alive ping at', new Date().toISOString());
 }, 300000);
+
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({ message: 'Внутренняя ошибка сервера' });
+});
 
 app.listen(PORT, () => console.log(`Сервер запущен на порту ${PORT}`));
